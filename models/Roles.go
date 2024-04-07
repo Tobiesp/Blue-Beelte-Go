@@ -44,3 +44,25 @@ func (r *Role) BeforeDelete(tx *gorm.DB) (err error) {
 	}
 	return
 }
+
+func MigrateRoleModel() error {
+	return database.Instance.AutoMigrate(&Role{})
+}
+
+func InitRoleModle() error {
+	var no_perm Role
+	no_perm.RoleName = "NO_PERMISSIONS"
+	no_perm.Permissions = NO_PERMISSION
+	err := no_perm.Save()
+	if err != nil {
+		return err
+	}
+	var admin Role
+	admin.RoleName = "ADMIN"
+	admin.Permissions = ADMIN
+	err = admin.Save()
+	if err != nil {
+		return err
+	}
+	return nil
+}
