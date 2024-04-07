@@ -9,6 +9,7 @@ import (
 
 	"golang.org/x/crypto/bcrypt"
 	"gorm.io/gorm"
+	"math/rand"
 )
 
 type User struct {
@@ -136,7 +137,20 @@ func (u *User) ChangePassword(oldPassword string, newPassword string) error {
 
 func (u *User) ResetPassword() (string, error) {
 	newPass := GenerateRandmoPassword()
-	err := u.EncryptPassword(newPass)
+	count := 0
+	for count < 1000 {
+		err := validatePassword(newPass)
+		if err == nil {
+			break
+		}
+		count += 1
+		newPass = GenerateRandmoPassword()
+	}
+	err := validatePassword(newPass)
+	if err == nil {
+		return "", err
+	}
+	err = u.EncryptPassword(newPass)
 	if err != nil {
 		return "", err
 	}
