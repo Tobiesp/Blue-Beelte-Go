@@ -7,6 +7,7 @@ import (
 	"time"
 	"unicode"
 
+	"golang.org/x/crypto/bcrypt"
 	"gorm.io/gorm"
 )
 
@@ -34,15 +35,10 @@ func CreateNewUser(username string, password string) (User, error) {
 	var noPerms Role
 	noPerms.Load("NO_PERMISSIONS")
 	u.Role = noPerms
-	err := ValidatePassword(password)
+	err := u.EncryptPassword(password)
 	if err != nil {
 		return u, err
 	}
-	pass, err := encryptPassword(password)
-	if err != nil {
-		return u, err
-	}
-	u.Password = pass
 	u.Save()
 	return u, nil
 }
@@ -66,7 +62,7 @@ func validateUsername(username string) error {
 	return nil
 }
 
-func ValidatePassword(password string) error {
+func validatePassword(password string) error {
 	// Must have at least 1 Upper case
 	// Must have at least 1 lower case
 	// Must have at least 1 symbol
@@ -113,9 +109,25 @@ func (u *User) VerifyPassword(password string) bool {
 	return bytes.Equal(u.Password, pass)
 }
 
+func (u *User) EncryptPassword(password string) error {
+	err := validatePassword(password)
+	if err != nil {
+		return err
+	}
+	ep, err := encryptPassword(password)
+	if err != nil {
+		return err
+	}
+	u.Password = ep
+	return nil
+}
+
 func encryptPassword(password string) ([]byte, error) {
-	//TODO: Add code here to encrypt the password
-	return []byte(password), nil
+	bytes, err := bcrypt.GenerateFromPassword([]byte(password), 14)
+	if err != nil {
+		return nil, err
+	}
+	return bytes, nil
 }
 
 func (u *User) Save() error {
@@ -159,11 +171,10 @@ func InitUserModle() error {
 	var admin User
 	admin.Email = "admin@no.email"
 	admin.Username = "admin"
-	pass, err := encryptPassword("Password_1")
+	err = admin.EncryptPassword("Password_1")
 	if err != nil {
 		return err
 	}
-	admin.Password = pass
 	var adminRole Role
 	adminRole.Load("ADMIN")
 	admin.Role = adminRole
