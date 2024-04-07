@@ -2,6 +2,7 @@ package models
 
 import (
 	"blue-beetle/database"
+	"bytes"
 	"errors"
 	"time"
 	"unicode"
@@ -102,6 +103,14 @@ func ValidatePassword(password string) error {
 		return errors.New("password must have at least 1 symbole")
 	}
 	return nil
+}
+
+func (u *User) VerifyPassword(password string) bool {
+	pass, err := encryptPassword(password)
+	if err != nil {
+		return false
+	}
+	return bytes.Equal(u.Password, pass)
 }
 
 func encryptPassword(password string) ([]byte, error) {
