@@ -30,6 +30,14 @@ func (r *Role) Save() error {
 	return nil
 }
 
+func (r *Role) SetPermission(flag permission) {
+	r.Permissions = r.Permissions | flag
+}
+
+func (r *Role) UnsetPermission(flag permission) {
+	r.Permissions = r.Permissions & ^flag
+}
+
 func (r *Role) Load(name string) error {
 	record := database.Instance.Where("role_name = ?", name).First(&r)
 	if record.Error != nil {
