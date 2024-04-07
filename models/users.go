@@ -122,6 +122,31 @@ func (u *User) EncryptPassword(password string) error {
 	return nil
 }
 
+func (u *User) ChangePassword(oldPassword string, newPassword string) error {
+	if u.VerifyPassword(oldPassword) {
+		err := u.EncryptPassword(newPassword)
+		if err != nil {
+			return err
+		}
+	} else {
+		return errors.New("current password doesn't match for the user")
+	}
+	return nil
+}
+
+func (u *User) ResetPassword() (string, error) {
+	newPass := GenerateRandmoPassword()
+	err := u.EncryptPassword(newPass)
+	if err != nil {
+		return "", err
+	}
+	err := u.Save()
+	if err != nil {
+		return "", err
+	}
+	return newPass, nil
+}
+
 func encryptPassword(password string) ([]byte, error) {
 	bytes, err := bcrypt.GenerateFromPassword([]byte(password), 14)
 	if err != nil {
@@ -157,6 +182,16 @@ func (u *User) BeforeDelete(tx *gorm.DB) (err error) {
 		return errors.New("admin users are not allowed to be deleted")
 	}
 	return
+}
+
+func GenerateRandmoPassword() string {
+	literalList := "QWERTYUIOPASDFGHJKLZXCVBNMqwertyuiopasdfghjklzxcvbnm1234567890_*#^&@:<>.,?+="
+	var s string
+	for i := 1; i < 16; i++ {
+		random := rand.Intn(len(literalList))
+		s += string(literalList.At(random))
+	}
+	return s
 }
 
 func MigrateUserModel() error {
