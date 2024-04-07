@@ -18,3 +18,11 @@ const (
 	EVENT_READ         permission = (1 << (iota))
 	EVENT_WRITE        permission = (1 << (iota))
 )
+
+func Set(value permission, flag permission) permission {
+	return value | flag
+}
+
+func Unset(value permission, flag permission) permission {
+	return value & ^flag
+}
