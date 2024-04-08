@@ -7,23 +7,24 @@ import (
 	"time"
 	"unicode"
 
+	"math/rand"
+
 	"golang.org/x/crypto/bcrypt"
 	"gorm.io/gorm"
-	"math/rand"
 )
 
 type User struct {
-	Username       string `gorm:"primaryKey"`
-	Email          string
-	Password       []byte
-	Role           Role
-	LoginAttempts  uint
-	LastLogin      time.Time
-	ResetPassword  bool
-	DisableAccount bool
-	CreatedAt      time.Time
-	UpdatedAt      time.Time
-	DeletedAt      gorm.DeletedAt `gorm:"index"`
+	Username           string `gorm:"primaryKey"`
+	Email              string
+	Password           []byte
+	Role               Role
+	LoginAttempts      uint
+	LastLogin          time.Time
+	ForcePasswordReset bool
+	DisableAccount     bool
+	CreatedAt          time.Time
+	UpdatedAt          time.Time
+	DeletedAt          gorm.DeletedAt `gorm:"index"`
 }
 
 func CreateNewUser(username string, password string) (User, error) {
@@ -154,7 +155,7 @@ func (u *User) ResetPassword() (string, error) {
 	if err != nil {
 		return "", err
 	}
-	err := u.Save()
+	err = u.Save()
 	if err != nil {
 		return "", err
 	}
@@ -203,7 +204,7 @@ func GenerateRandmoPassword() string {
 	var s string
 	for i := 1; i < 16; i++ {
 		random := rand.Intn(len(literalList))
-		s += string(literalList.At(random))
+		s += string(literalList[random])
 	}
 	return s
 }
