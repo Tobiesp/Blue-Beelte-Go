@@ -9,12 +9,14 @@ import (
 
 	"math/rand"
 
+	"github.com/google/uuid"
 	"golang.org/x/crypto/bcrypt"
 	"gorm.io/gorm"
 )
 
 type User struct {
-	Username           string `gorm:"primaryKey"`
+	ID                 uuid.UUID `gorm:"primaryKey,type:uuid;default:uuid_generate_v4()"`
+	Username           string    `gorm:"not null,type:text"`
 	Email              string
 	Password           []byte
 	Role               Role
@@ -132,6 +134,10 @@ func (u *User) ChangePassword(oldPassword string, newPassword string) error {
 		}
 	} else {
 		return errors.New("current password doesn't match for the user")
+	}
+	err := u.Save()
+	if err != nil {
+		return err
 	}
 	return nil
 }

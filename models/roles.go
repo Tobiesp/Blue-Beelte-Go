@@ -5,11 +5,13 @@ import (
 	"errors"
 	"time"
 
+	"github.com/google/uuid"
 	"gorm.io/gorm"
 )
 
 type Role struct {
-	RoleName    string `gorm:"primaryKey"`
+	ID          uuid.UUID `gorm:"primaryKey,type:uuid;default:uuid_generate_v4()"`
+	RoleName    string    `gorm:"not null,type:text"`
 	Permissions permission
 	CreatedAt   time.Time
 	UpdatedAt   time.Time
