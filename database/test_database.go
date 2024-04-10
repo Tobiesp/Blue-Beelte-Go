@@ -81,8 +81,13 @@ func BuildMockDBRows(data []interface{}) (*sqlmock.Rows, error) {
 			var values []driver.Value
 			for i := 0; i < rType.NumField(); i++ {
 				fieldValue := rValue.Field(i)
-				values = append(values, fieldValue)
-				//TODO: Add in logic to get ID for struct in struct
+				srValue := reflect.ValueOf(fieldValue)
+				srType := srValue.Type()
+				if srType.Kind() == reflect.Struct {
+					values = append(values, srValue.FieldByName("ID"))
+				} else {
+					values = append(values, fieldValue)
+				}
 			}
 			rows.AddRow(values)
 		}
