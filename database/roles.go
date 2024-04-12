@@ -1,7 +1,6 @@
-package models
+package database
 
 import (
-	"blue-beetle/database"
 	"errors"
 	"time"
 
@@ -19,11 +18,11 @@ type Role struct {
 }
 
 func (r *Role) Save() error {
-	record := database.Instance.Where("role_name = ?", r.RoleName).First(&r)
+	record := UserRepo.Database.Where("role_name = ?", r.RoleName).First(&r)
 	if record.Error != nil {
-		record = database.Instance.Create(&r)
+		record = UserRepo.Database.Create(&r)
 	} else {
-		record = database.Instance.Save(&r)
+		record = UserRepo.Database.Save(&r)
 	}
 	err := record.Error
 	if err != nil {
@@ -41,7 +40,7 @@ func (r *Role) UnsetPermission(flag permission) {
 }
 
 func (r *Role) Load(name string) error {
-	record := database.Instance.Where("role_name = ?", name).First(&r)
+	record := UserRepo.Database.Where("role_name = ?", name).First(&r)
 	if record.Error != nil {
 		return record.Error
 	}
@@ -55,11 +54,11 @@ func (r *Role) BeforeDelete(tx *gorm.DB) (err error) {
 	return
 }
 
-func MigrateRoleModel() error {
-	return database.Instance.AutoMigrate(&Role{})
+func (r *UserRepository) MigrateRoleModel() error {
+	return UserRepo.Database.AutoMigrate(&Role{})
 }
 
-func InitRoleModle() error {
+func (r *UserRepository) InitRoleModle() error {
 	var no_perm Role
 	no_perm.RoleName = "NO_PERMISSIONS"
 	no_perm.Permissions = NO_PERMISSION

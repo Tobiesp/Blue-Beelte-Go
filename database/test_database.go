@@ -61,11 +61,19 @@ func GetStructSchema(s interface{}) (TableSchema, error) {
 	return ts, nil
 }
 
-func BuildMockDBRows(data []interface{}) (*sqlmock.Rows, error) {
-	if len(data) == 0 {
+func BuildMockDBRows(data any) (*sqlmock.Rows, error) {
+	rt := reflect.TypeOf(data)
+	if rt.Kind() != reflect.Array {
 		return nil, errors.New("must supply a list of data")
 	}
-	tableSchema, err := GetStructSchema(data[0])
+	val, ok := data.([]interface{})
+	if !ok {
+		return nil, errors.New("data must be an array of interfaces")
+	}
+	if len(val) == 0 {
+		return nil, errors.New("array can not be empty")
+	}
+	tableSchema, err := GetStructSchema((val)[0])
 	if err != nil {
 		return nil, err
 	}
@@ -74,7 +82,7 @@ func BuildMockDBRows(data []interface{}) (*sqlmock.Rows, error) {
 		headers = append(headers, column.DBColumnName)
 	}
 	rows := sqlmock.NewRows(headers)
-	for _, row := range data {
+	for _, row := range val {
 		rValue := reflect.ValueOf(row)
 		rType := rValue.Type()
 		if rType.Kind() == reflect.Struct {

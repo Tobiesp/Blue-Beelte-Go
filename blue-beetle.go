@@ -47,7 +47,10 @@ func main() {
 			panic(err.Error())
 		}
 	}
-	database.Connect(sconfig.Database)
+	err = database.UserRepo.ConnectUserRepository(sconfig.Database)
+	if err != nil {
+		panic(err)
+	}
 	Migrate()
 
 	log.Fatal(http.ListenAndServe(":"+strconv.Itoa(sconfig.Server.Port), nil))

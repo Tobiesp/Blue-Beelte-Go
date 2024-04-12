@@ -1,7 +1,6 @@
-package models
+package database
 
 import (
-	"blue-beetle/database"
 	"bytes"
 	"errors"
 	"time"
@@ -29,7 +28,7 @@ type User struct {
 	DeletedAt          gorm.DeletedAt `gorm:"index"`
 }
 
-func CreateNewUser(username string, password string) (User, error) {
+func (r *UserRepository) CreateNewUser(username string, password string) (User, error) {
 	validate := validateUsername(username)
 	var u User
 	if validate != nil {
@@ -52,7 +51,7 @@ func validateUsername(username string) error {
 		return errors.New("username can not be empty")
 	}
 	var exists bool
-	err := database.Instance.Model(&User{}).
+	err := UserRepo.Database.Model(&User{}).
 		Select("count(*) > 0").
 		Where("username = ?", username).
 		Find(&exists).
@@ -143,7 +142,7 @@ func (u *User) ChangePassword(oldPassword string, newPassword string) error {
 }
 
 func (u *User) ResetPassword() (string, error) {
-	newPass := GenerateRandmoPassword()
+	newPass := UserRepo.GenerateRandmoPassword()
 	count := 0
 	for count < 1000 {
 		err := validatePassword(newPass)
@@ -151,7 +150,7 @@ func (u *User) ResetPassword() (string, error) {
 			break
 		}
 		count += 1
-		newPass = GenerateRandmoPassword()
+		newPass = UserRepo.GenerateRandmoPassword()
 	}
 	err := validatePassword(newPass)
 	if err == nil {
@@ -177,11 +176,11 @@ func encryptPassword(password string) ([]byte, error) {
 }
 
 func (u *User) Save() error {
-	record := database.Instance.Where("username = ?", u.Username).First(&u)
+	record := UserRepo.Database.Where("username = ?", u.Username).First(&u)
 	if record.Error != nil {
-		record = database.Instance.Create(&u)
+		record = UserRepo.Database.Create(&u)
 	} else {
-		record = database.Instance.Save(&u)
+		record = UserRepo.Database.Save(&u)
 	}
 	err := record.Error
 	if err != nil {
@@ -191,7 +190,7 @@ func (u *User) Save() error {
 }
 
 func (u *User) Load(username string) error {
-	record := database.Instance.Where("username = ?", u.Username).First(&u)
+	record := UserRepo.Database.Where("username = ?", u.Username).First(&u)
 	if record.Error != nil {
 		return record.Error
 	}
@@ -205,7 +204,7 @@ func (u *User) BeforeDelete(tx *gorm.DB) (err error) {
 	return
 }
 
-func GenerateRandmoPassword() string {
+func (r *UserRepository) GenerateRandmoPassword() string {
 	literalList := "QWERTYUIOPASDFGHJKLZXCVBNMqwertyuiopasdfghjklzxcvbnm1234567890_*#^&@:<>.,?+="
 	var s string
 	for i := 1; i < 16; i++ {
@@ -215,12 +214,12 @@ func GenerateRandmoPassword() string {
 	return s
 }
 
-func MigrateUserModel() error {
-	return database.Instance.AutoMigrate(&User{})
+func (r *UserRepository) MigrateUserModel() error {
+	return UserRepo.Database.AutoMigrate(&User{})
 }
 
-func InitUserModle() error {
-	err := InitRoleModle()
+func (r *UserRepository) InitUserModle() error {
+	err := r.InitRoleModle()
 	if err != nil {
 		return err
 	}

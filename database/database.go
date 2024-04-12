@@ -2,7 +2,6 @@ package database
 
 import (
 	"errors"
-	"log"
 	"strconv"
 	"strings"
 
@@ -15,32 +14,46 @@ import (
 	"gorm.io/gorm"
 )
 
-var Instance *gorm.DB
-var dbError error
+var UserRepo UserRepository
 
-func Connect(dbconfig config.DBConfig) {
+type UserRepository struct {
+	Database *gorm.DB
+}
+
+func (r *UserRepository) ConnectUserRepository(dbconfig config.DBConfig) error {
 	err := checkDBConfig(&dbconfig)
 	if err != nil {
-		log.Fatal(err)
-		panic("Database configuration not correct")
+		return errors.New("Database configuration not correct: " + err.Error())
 	}
 	if dbconfig.Type == "mysql" {
 		connectionString := buildMySQLConnectionString(dbconfig)
-		Instance, dbError = gorm.Open(mysql.Open(connectionString), &gorm.Config{})
+		db, err := gorm.Open(mysql.Open(connectionString), &gorm.Config{})
+		if err != nil {
+			return err
+		}
+		r.Database = db
 	} else if dbconfig.Type == "sqlite" {
-		Instance, dbError = gorm.Open(sqlite.Open(dbconfig.FilePath), &gorm.Config{})
+		db, err := gorm.Open(sqlite.Open(dbconfig.FilePath), &gorm.Config{})
+		if err != nil {
+			return err
+		}
+		r.Database = db
 	} else if dbconfig.Type == "postgresql" {
 		connectionString := buildPostGresqlConnectionString(dbconfig)
-		Instance, dbError = gorm.Open(postgres.Open(connectionString), &gorm.Config{})
+		db, err := gorm.Open(postgres.Open(connectionString), &gorm.Config{})
+		if err != nil {
+			return err
+		}
+		r.Database = db
 	} else if dbconfig.Type == "sql" {
 		connectionString := buildSQLServerConnectionString(dbconfig)
-		Instance, dbError = gorm.Open(sqlserver.Open(connectionString), &gorm.Config{})
+		db, err := gorm.Open(sqlserver.Open(connectionString), &gorm.Config{})
+		if err != nil {
+			return err
+		}
+		r.Database = db
 	}
-	if dbError != nil {
-		log.Fatal(dbError)
-		panic("Cannot connect to DB")
-	}
-	log.Println("Connected to Database!")
+	return nil
 }
 
 func checkDBConfig(dbconfig *config.DBConfig) error {
