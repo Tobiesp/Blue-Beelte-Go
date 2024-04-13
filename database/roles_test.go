@@ -24,7 +24,8 @@ func TestFindRole_ShouldFind(t *testing.T) {
 	roles, err := BuildMockDBRows(RoleData)
 	assert.Nil(t, err)
 
-	expectedSQL := "SELECT (.+) FROM \"roles\" WHERE id =(.+)"
+	expectedSQL, err := BuildSelectQuery(RoleData[0])
+	assert.Nil(t, err)
 
 	mock.ExpectQuery(expectedSQL).WillReturnRows(roles)
 

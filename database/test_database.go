@@ -4,7 +4,9 @@ import (
 	"database/sql"
 	"database/sql/driver"
 	"errors"
+	"log"
 	"reflect"
+	"strings"
 	"sync"
 	"testing"
 
@@ -40,6 +42,7 @@ type ColumnSchema struct {
 }
 
 type TableSchema struct {
+	Name    string
 	Columns []ColumnSchema
 }
 
@@ -50,6 +53,7 @@ func GetStructSchema(s interface{}) (TableSchema, error) {
 		return ts, err
 	}
 
+	ts.Name = sch.Table
 	for idx, field := range sch.Fields {
 		var cs ColumnSchema
 		cs.DBColumnIndex = idx
@@ -58,20 +62,39 @@ func GetStructSchema(s interface{}) (TableSchema, error) {
 		cs.FieldName = field.Name
 		ts.Columns = append(ts.Columns, cs)
 	}
+
 	return ts, nil
+}
+
+func BuildSelectQuery(s interface{}) (string, error) {
+	tableSchema, err := GetStructSchema(s)
+	if err != nil {
+		return "", err
+	}
+	formatName := strings.TrimSpace(strings.ToLower(tableSchema.Name))
+	if !strings.HasSuffix(formatName, "s") {
+		formatName = formatName + "s"
+	}
+	return "SELECT (.+) FROM \"" + formatName + "\" WHERE (.+)", nil
 }
 
 func BuildMockDBRows(data any) (*sqlmock.Rows, error) {
 	rt := reflect.TypeOf(data)
-	if rt.Kind() != reflect.Array {
+	log.Default().Println("Data Type: " + rt.Kind().String())
+	if rt.Kind() != reflect.Array && rt.Kind() != reflect.Slice {
 		return nil, errors.New("must supply a list of data")
 	}
-	val, ok := data.([]interface{})
-	if !ok {
-		return nil, errors.New("data must be an array of interfaces")
+
+	rv := reflect.ValueOf(data)
+	if rv.IsNil() {
+		return nil, errors.New("data is nil")
 	}
-	if len(val) == 0 {
-		return nil, errors.New("array can not be empty")
+	if rv.Len() == 0 {
+		return nil, errors.New("data must  have at least 1 element in the array")
+	}
+	val := make([]interface{}, rv.Len())
+	for i := 0; i < rv.Len(); i++ {
+		val[i] = rv.Index(i).Interface()
 	}
 	tableSchema, err := GetStructSchema((val)[0])
 	if err != nil {
@@ -81,23 +104,33 @@ func BuildMockDBRows(data any) (*sqlmock.Rows, error) {
 	for _, column := range tableSchema.Columns {
 		headers = append(headers, column.DBColumnName)
 	}
-	rows := sqlmock.NewRows(headers)
+
+	log.Println("Headers: ", headers)
+
+	rows := sqlmock.NewRows(headers[:])
+
 	for _, row := range val {
 		rValue := reflect.ValueOf(row)
 		rType := rValue.Type()
 		if rType.Kind() == reflect.Struct {
 			var values []driver.Value
 			for i := 0; i < rType.NumField(); i++ {
-				fieldValue := rValue.Field(i)
+				fieldValue := rValue.Field(i).Interface()
 				srValue := reflect.ValueOf(fieldValue)
 				srType := srValue.Type()
+
 				if srType.Kind() == reflect.Struct {
-					values = append(values, srValue.FieldByName("ID"))
+					if srValue.FieldByName("ID").IsValid() {
+						values = append(values, srValue.FieldByName("ID").Interface())
+					} else {
+						values = append(values, fieldValue)
+					}
 				} else {
 					values = append(values, fieldValue)
 				}
 			}
-			rows.AddRow(values)
+			log.Println("value: ", values)
+			rows = rows.AddRow(values...)
 		}
 	}
 	return rows, nil
