@@ -21,7 +21,7 @@ func TestFindRole_ShouldFindAdmin(t *testing.T) {
 		CreatedAt:   time.Now(),
 		UpdatedAt:   time.Now(),
 	})
-	roles, err := BuildMockDBRows(RoleData)
+	roles, err := BuildMockDBSelectRows(RoleData)
 	assert.Nil(t, err)
 
 	expectedSQL, err := BuildSelectQuery(RoleData[0])
@@ -33,6 +33,7 @@ func TestFindRole_ShouldFindAdmin(t *testing.T) {
 	assert.Nil(t, err)
 	assert.Nil(t, mock.ExpectationsWereMet())
 }
+
 func TestFindRole_ShouldFindNoPermissions(t *testing.T) {
 	sqlDB, db, mock := DbMock(t)
 	defer sqlDB.Close()
@@ -46,7 +47,7 @@ func TestFindRole_ShouldFindNoPermissions(t *testing.T) {
 		CreatedAt:   time.Now(),
 		UpdatedAt:   time.Now(),
 	})
-	roles, err := BuildMockDBRows(RoleData)
+	roles, err := BuildMockDBSelectRows(RoleData)
 	assert.Nil(t, err)
 
 	expectedSQL, err := BuildSelectQuery(RoleData[0])
@@ -55,6 +56,41 @@ func TestFindRole_ShouldFindNoPermissions(t *testing.T) {
 	mock.ExpectQuery(expectedSQL).WillReturnRows(roles)
 
 	_, err = UserRepo.LoadRole("NO_PERMISSIONS")
+	assert.Nil(t, err)
+	assert.Nil(t, mock.ExpectationsWereMet())
+}
+
+func TestAddRole_ShouldSucceed(t *testing.T) {
+	sqlDB, db, mock := DbMock(t)
+	defer sqlDB.Close()
+
+	UserRepo.Database = db
+	var RoleData []Role
+	RoleData = append(RoleData, Role{
+		ID:          uuid.New(),
+		RoleName:    "CATEGORY_WRITE",
+		Permissions: CATEGORY_WRITE | CATEGORY_READ,
+		CreatedAt:   time.Now(),
+		UpdatedAt:   time.Now(),
+	})
+	selectRoles, err := BuildMockRowsTableHeader(RoleData, false)
+	assert.Nil(t, err)
+	insertRoles, err := BuildMockDBInsertRows(RoleData)
+	assert.Nil(t, err)
+
+	expectedSQLSelect, err := BuildSelectQuery(RoleData[0])
+	assert.Nil(t, err)
+	expectedSQLInsert, err := BuildInsertQuery(RoleData[0])
+	assert.Nil(t, err)
+
+	mock.ExpectQuery(expectedSQLSelect).WillReturnRows(selectRoles)
+
+	mock.ExpectBegin()
+	mock.ExpectQuery(expectedSQLInsert).WillReturnRows(insertRoles)
+	mock.ExpectCommit()
+
+	err = UserRepo.SaveRole(RoleData[0])
+
 	assert.Nil(t, err)
 	assert.Nil(t, mock.ExpectationsWereMet())
 }

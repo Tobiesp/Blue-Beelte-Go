@@ -78,7 +78,70 @@ func BuildSelectQuery(s interface{}) (string, error) {
 	return "SELECT (.+) FROM \"" + formatName + "\" WHERE (.+)", nil
 }
 
-func BuildMockDBRows(data any) (*sqlmock.Rows, error) {
+func BuildInsertQuery(s interface{}) (string, error) {
+	tableSchema, err := GetStructSchema(s)
+	if err != nil {
+		return "", err
+	}
+	formatName := strings.TrimSpace(strings.ToLower(tableSchema.Name))
+	if !strings.HasSuffix(formatName, "s") {
+		formatName = formatName + "s"
+	}
+	return "INSERT INTO \"" + formatName + "\" (.+) VALUES (.+)", nil
+}
+
+func BuildMockDBSelectRows(data any) (*sqlmock.Rows, error) {
+	rt := reflect.TypeOf(data)
+	log.Default().Println("Data Type: " + rt.Kind().String())
+	if rt.Kind() != reflect.Array && rt.Kind() != reflect.Slice {
+		return nil, errors.New("must supply a list of data")
+	}
+
+	rv := reflect.ValueOf(data)
+	if rv.IsNil() {
+		return nil, errors.New("data is nil")
+	}
+	if rv.Len() == 0 {
+		return nil, errors.New("data must  have at least 1 element in the array")
+	}
+	val := make([]interface{}, rv.Len())
+	for i := 0; i < rv.Len(); i++ {
+		val[i] = rv.Index(i).Interface()
+	}
+
+	rows, err := BuildMockRowsTableHeader(data, false)
+	if err != nil {
+		return nil, err
+	}
+
+	for _, row := range val {
+		rValue := reflect.ValueOf(row)
+		rType := rValue.Type()
+		if rType.Kind() == reflect.Struct {
+			var values []driver.Value
+			for i := 0; i < rType.NumField(); i++ {
+				fieldValue := rValue.Field(i).Interface()
+				srValue := reflect.ValueOf(fieldValue)
+				srType := srValue.Type()
+
+				if srType.Kind() == reflect.Struct {
+					if srValue.FieldByName("ID").IsValid() {
+						values = append(values, srValue.FieldByName("ID").Interface())
+					} else {
+						values = append(values, fieldValue)
+					}
+				} else {
+					values = append(values, fieldValue)
+				}
+			}
+			log.Println("value: ", values)
+			rows = rows.AddRow(values...)
+		}
+	}
+	return rows, nil
+}
+
+func BuildMockRowsTableHeader(data any, insertQuery bool) (*sqlmock.Rows, error) {
 	rt := reflect.TypeOf(data)
 	log.Default().Println("Data Type: " + rt.Kind().String())
 	if rt.Kind() != reflect.Array && rt.Kind() != reflect.Slice {
@@ -102,12 +165,46 @@ func BuildMockDBRows(data any) (*sqlmock.Rows, error) {
 	}
 	var headers []string
 	for _, column := range tableSchema.Columns {
-		headers = append(headers, column.DBColumnName)
+		if insertQuery {
+			if strings.ToLower(column.DBColumnName) == "id" {
+				headers = append(headers, column.DBColumnName)
+				break
+			}
+		} else {
+			headers = append(headers, column.DBColumnName)
+		}
 	}
 
 	log.Println("Headers: ", headers)
 
 	rows := sqlmock.NewRows(headers[:])
+
+	return rows, nil
+}
+
+func BuildMockDBInsertRows(data any) (*sqlmock.Rows, error) {
+	rt := reflect.TypeOf(data)
+	log.Default().Println("Data Type: " + rt.Kind().String())
+	if rt.Kind() != reflect.Array && rt.Kind() != reflect.Slice {
+		return nil, errors.New("must supply a list of data")
+	}
+
+	rv := reflect.ValueOf(data)
+	if rv.IsNil() {
+		return nil, errors.New("data is nil")
+	}
+	if rv.Len() == 0 {
+		return nil, errors.New("data must  have at least 1 element in the array")
+	}
+	val := make([]interface{}, rv.Len())
+	for i := 0; i < rv.Len(); i++ {
+		val[i] = rv.Index(i).Interface()
+	}
+
+	rows, err := BuildMockRowsTableHeader(data, true)
+	if err != nil {
+		return nil, err
+	}
 
 	for _, row := range val {
 		rValue := reflect.ValueOf(row)
@@ -115,18 +212,10 @@ func BuildMockDBRows(data any) (*sqlmock.Rows, error) {
 		if rType.Kind() == reflect.Struct {
 			var values []driver.Value
 			for i := 0; i < rType.NumField(); i++ {
-				fieldValue := rValue.Field(i).Interface()
-				srValue := reflect.ValueOf(fieldValue)
-				srType := srValue.Type()
-
-				if srType.Kind() == reflect.Struct {
-					if srValue.FieldByName("ID").IsValid() {
-						values = append(values, srValue.FieldByName("ID").Interface())
-					} else {
-						values = append(values, fieldValue)
-					}
-				} else {
+				if rValue.FieldByName("ID").IsValid() {
+					fieldValue := rValue.Field(i).Interface()
 					values = append(values, fieldValue)
+					break
 				}
 			}
 			log.Println("value: ", values)

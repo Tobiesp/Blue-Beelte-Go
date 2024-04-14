@@ -18,14 +18,14 @@ type User struct {
 	Username           string    `gorm:"not null,type:text"`
 	Email              string
 	Password           []byte
-	Role               Role
+	Role               Role `gorm:"embedded"`
 	LoginAttempts      uint
-	LastLogin          time.Time
+	LastLogin          time.Time `gorm:"embedded"`
 	ForcePasswordReset bool
 	DisableAccount     bool
-	CreatedAt          time.Time
-	UpdatedAt          time.Time
-	DeletedAt          gorm.DeletedAt `gorm:"index"`
+	CreatedAt          time.Time      `gorm:"embedded"`
+	UpdatedAt          time.Time      `gorm:"embedded"`
+	DeletedAt          gorm.DeletedAt `gorm:"index;embedded"`
 }
 
 func (r *UserRepository) CreateNewUser(username string, password string) (User, error) {
@@ -182,10 +182,10 @@ func encryptPassword(password string) ([]byte, error) {
 
 func (r *UserRepository) SaveUser(user User) error {
 	record := r.Database.Where("username = ?", user.Username).First(&user)
-	if record.Error != nil {
-		record = r.Database.Create(&user)
-	} else {
-		record = r.Database.Save(&user)
+	if record.Error != nil && errors.Is(record.Error, gorm.ErrRecordNotFound) {
+		record = r.Database.Create(&r)
+	} else if record.Error == nil {
+		record = r.Database.Save(&r)
 	}
 	err := record.Error
 	if err != nil {

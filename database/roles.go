@@ -2,6 +2,7 @@ package database
 
 import (
 	"errors"
+	"log"
 	"time"
 
 	"github.com/google/uuid"
@@ -18,14 +19,18 @@ type Role struct {
 }
 
 func (r *UserRepository) SaveRole(role Role) error {
-	record := UserRepo.Database.Where("role_name = ?", role.RoleName).First(&role)
-	if record.Error != nil {
-		record = UserRepo.Database.Create(&r)
-	} else {
-		record = UserRepo.Database.Save(&r)
+	record := r.Database.Where("role_name = ?", role.RoleName).First(&role)
+	if record.Error != nil && errors.Is(record.Error, gorm.ErrRecordNotFound) {
+		log.Default().Println("Creating new Role")
+		record = r.Database.Create(&r)
+		log.Default().Println("Role created...")
+	} else if record.Error == nil {
+		log.Default().Println("Saving existing Role: " + role.RoleName)
+		record = r.Database.Save(&r)
 	}
 	err := record.Error
 	if err != nil {
+		log.Default().Println("Error during save operation")
 		return err
 	}
 	return nil
