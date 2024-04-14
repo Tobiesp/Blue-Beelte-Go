@@ -17,8 +17,8 @@ type Role struct {
 	DeletedAt   gorm.DeletedAt `gorm:"index"`
 }
 
-func (r *Role) Save() error {
-	record := UserRepo.Database.Where("role_name = ?", r.RoleName).First(&r)
+func (r *UserRepository) SaveRole(role Role) error {
+	record := UserRepo.Database.Where("role_name = ?", role.RoleName).First(&role)
 	if record.Error != nil {
 		record = UserRepo.Database.Create(&r)
 	} else {
@@ -39,12 +39,13 @@ func (r *Role) UnsetPermission(flag permission) {
 	r.Permissions = r.Permissions & ^flag
 }
 
-func (r *Role) Load(name string) error {
-	record := UserRepo.Database.Where("role_name = ?", name).First(&r)
+func (r *UserRepository) LoadRole(name string) (Role, error) {
+	var role Role
+	record := r.Database.Where("role_name = ?", name).First(&role)
 	if record.Error != nil {
-		return record.Error
+		return role, record.Error
 	}
-	return nil
+	return role, nil
 }
 
 func (r *Role) BeforeDelete(tx *gorm.DB) (err error) {
@@ -61,15 +62,15 @@ func (r *UserRepository) MigrateRoleModel() error {
 func (r *UserRepository) InitRoleModle() error {
 	var no_perm Role
 	no_perm.RoleName = "NO_PERMISSIONS"
-	no_perm.Permissions = NO_PERMISSION
-	err := no_perm.Save()
+	no_perm.Permissions = NO_PERMISSIONS
+	err := r.SaveRole(no_perm)
 	if err != nil {
 		return err
 	}
 	var admin Role
 	admin.RoleName = "ADMIN"
 	admin.Permissions = ADMIN
-	err = admin.Save()
+	err = r.SaveRole(admin)
 	if err != nil {
 		return err
 	}

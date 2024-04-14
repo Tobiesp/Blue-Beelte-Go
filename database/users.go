@@ -29,29 +29,34 @@ type User struct {
 }
 
 func (r *UserRepository) CreateNewUser(username string, password string) (User, error) {
-	validate := validateUsername(username)
+	validate := r.validateUsername(username)
 	var u User
 	if validate != nil {
 		return u, validate
 	}
 	u.Username = username
-	var noPerms Role
-	noPerms.Load("NO_PERMISSIONS")
-	u.Role = noPerms
-	err := u.EncryptPassword(password)
+	noPerms, err := UserRepo.LoadRole("NO_PERMISSIONS")
 	if err != nil {
 		return u, err
 	}
-	u.Save()
+	u.Role = noPerms
+	err = u.EncryptPassword(password)
+	if err != nil {
+		return u, err
+	}
+	err = r.SaveUser(u)
+	if err != nil {
+		return u, err
+	}
 	return u, nil
 }
 
-func validateUsername(username string) error {
+func (r *UserRepository) validateUsername(username string) error {
 	if username == "" {
 		return errors.New("username can not be empty")
 	}
 	var exists bool
-	err := UserRepo.Database.Model(&User{}).
+	err := r.Database.Model(&User{}).
 		Select("count(*) > 0").
 		Where("username = ?", username).
 		Find(&exists).
@@ -125,23 +130,23 @@ func (u *User) EncryptPassword(password string) error {
 	return nil
 }
 
-func (u *User) ChangePassword(oldPassword string, newPassword string) error {
-	if u.VerifyPassword(oldPassword) {
-		err := u.EncryptPassword(newPassword)
+func (r *UserRepository) ChangeUserPassword(user User, oldPassword string, newPassword string) error {
+	if user.VerifyPassword(oldPassword) {
+		err := user.EncryptPassword(newPassword)
 		if err != nil {
 			return err
 		}
 	} else {
 		return errors.New("current password doesn't match for the user")
 	}
-	err := u.Save()
+	err := r.SaveUser(user)
 	if err != nil {
 		return err
 	}
 	return nil
 }
 
-func (u *User) ResetPassword() (string, error) {
+func (r *UserRepository) ResetUserPassword(user User) (string, error) {
 	newPass := UserRepo.GenerateRandmoPassword()
 	count := 0
 	for count < 1000 {
@@ -156,11 +161,11 @@ func (u *User) ResetPassword() (string, error) {
 	if err == nil {
 		return "", err
 	}
-	err = u.EncryptPassword(newPass)
+	err = user.EncryptPassword(newPass)
 	if err != nil {
 		return "", err
 	}
-	err = u.Save()
+	err = r.SaveUser(user)
 	if err != nil {
 		return "", err
 	}
@@ -175,12 +180,12 @@ func encryptPassword(password string) ([]byte, error) {
 	return bytes, nil
 }
 
-func (u *User) Save() error {
-	record := UserRepo.Database.Where("username = ?", u.Username).First(&u)
+func (r *UserRepository) SaveUser(user User) error {
+	record := r.Database.Where("username = ?", user.Username).First(&user)
 	if record.Error != nil {
-		record = UserRepo.Database.Create(&u)
+		record = r.Database.Create(&user)
 	} else {
-		record = UserRepo.Database.Save(&u)
+		record = r.Database.Save(&user)
 	}
 	err := record.Error
 	if err != nil {
@@ -189,12 +194,13 @@ func (u *User) Save() error {
 	return nil
 }
 
-func (u *User) Load(username string) error {
-	record := UserRepo.Database.Where("username = ?", u.Username).First(&u)
+func (r *UserRepository) LoadUser(username string) (User, error) {
+	var user User
+	record := r.Database.Where("username = ?", username).First(&user)
 	if record.Error != nil {
-		return record.Error
+		return user, record.Error
 	}
-	return nil
+	return user, nil
 }
 
 func (u *User) BeforeDelete(tx *gorm.DB) (err error) {
@@ -218,7 +224,7 @@ func (r *UserRepository) MigrateUserModel() error {
 	return UserRepo.Database.AutoMigrate(&User{})
 }
 
-func (r *UserRepository) InitUserModle() error {
+func (r *UserRepository) InitUserModel() error {
 	err := r.InitRoleModle()
 	if err != nil {
 		return err
@@ -230,10 +236,12 @@ func (r *UserRepository) InitUserModle() error {
 	if err != nil {
 		return err
 	}
-	var adminRole Role
-	adminRole.Load("ADMIN")
+	adminRole, err := r.LoadRole("ADMIN")
+	if err != nil {
+		return err
+	}
 	admin.Role = adminRole
-	err = admin.Save()
+	err = r.SaveUser(admin)
 	if err != nil {
 		return err
 	}
