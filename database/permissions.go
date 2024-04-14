@@ -3,7 +3,7 @@ package database
 type permission uint64
 
 const (
-	NO_PERMISSION      permission = 0
+	NO_PERMISSIONS     permission = 0
 	ADMIN              permission = (1 << (iota))
 	USER_READ          permission = (1 << (iota))
 	USER_WRITE         permission = (1 << (iota))
