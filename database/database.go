@@ -29,6 +29,7 @@ func (r *UserRepository) AutoMigrate() error {
 	if err != nil {
 		return err
 	}
+	return nil
 }
 
 func (r *UserRepository) ConnectUserRepository(dbconfig config.DBConfig) error {
