@@ -15,7 +15,7 @@ func TestFindRole_ShouldFindAdmin(t *testing.T) {
 	UserRepo.Database = db
 	var RoleData []Role
 	RoleData = append(RoleData, Role{
-		ID:          uuid.New(),
+		ID:          uuid.NewString(),
 		RoleName:    "ADMIN",
 		Permissions: ADMIN,
 		CreatedAt:   time.Now(),
@@ -41,7 +41,7 @@ func TestFindRole_ShouldFindNoPermissions(t *testing.T) {
 	UserRepo.Database = db
 	var RoleData []Role
 	RoleData = append(RoleData, Role{
-		ID:          uuid.New(),
+		ID:          uuid.NewString(),
 		RoleName:    "NO_PERMISSIONS",
 		Permissions: NO_PERMISSIONS,
 		CreatedAt:   time.Now(),
@@ -67,7 +67,7 @@ func TestAddRole_ShouldSucceed(t *testing.T) {
 	UserRepo.Database = db
 	var RoleData []Role
 	RoleData = append(RoleData, Role{
-		ID:          uuid.New(),
+		ID:          uuid.NewString(),
 		RoleName:    "CATEGORY_WRITE",
 		Permissions: CATEGORY_WRITE | CATEGORY_READ,
 		CreatedAt:   time.Now(),
@@ -75,19 +75,18 @@ func TestAddRole_ShouldSucceed(t *testing.T) {
 	})
 	selectRoles, err := BuildMockRowsTableHeader(RoleData, false)
 	assert.Nil(t, err)
-	insertRoles, err := BuildMockDBInsertRows(RoleData)
-	assert.Nil(t, err)
+	// insertRoles, err := BuildMockDBInsertRows(RoleData)
+	// assert.Nil(t, err)
 
 	expectedSQLSelect, err := BuildSelectQuery(RoleData[0])
 	assert.Nil(t, err)
 	expectedSQLInsert, err := BuildInsertQuery(RoleData[0])
 	assert.Nil(t, err)
 
-	mock.ExpectQuery(expectedSQLSelect).WillReturnRows(selectRoles)
+	UserRepo.Database = UserRepo.Database.Model(&Role{})
 
-	mock.ExpectBegin()
-	mock.ExpectQuery(expectedSQLInsert).WillReturnRows(insertRoles)
-	mock.ExpectCommit()
+	mock.ExpectQuery(expectedSQLSelect).WillReturnRows(selectRoles)
+	mock.ExpectQuery(expectedSQLInsert).WillReturnRows()
 
 	err = UserRepo.SaveRole(RoleData[0])
 

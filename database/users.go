@@ -14,8 +14,8 @@ import (
 )
 
 type User struct {
-	ID                 uuid.UUID `gorm:"primaryKey,type:uuid;default:uuid_generate_v4()"`
-	Username           string    `gorm:"not null,type:text"`
+	ID                 string `gorm:"primaryKey"`
+	Username           string `gorm:"not null,type:text"`
 	Email              string
 	Password           []byte
 	Role               Role `gorm:"embedded"`
@@ -26,6 +26,12 @@ type User struct {
 	CreatedAt          time.Time      `gorm:"embedded"`
 	UpdatedAt          time.Time      `gorm:"embedded"`
 	DeletedAt          gorm.DeletedAt `gorm:"index;embedded"`
+}
+
+func (user *User) BeforeCreate(tx *gorm.DB) (err error) {
+	// UUID version 4
+	user.ID = uuid.NewString()
+	return
 }
 
 func (r *UserRepository) CreateNewUser(username string, password string) (User, error) {
@@ -183,9 +189,9 @@ func encryptPassword(password string) ([]byte, error) {
 func (r *UserRepository) SaveUser(user User) error {
 	record := r.Database.Where("username = ?", user.Username).First(&user)
 	if record.Error != nil && errors.Is(record.Error, gorm.ErrRecordNotFound) {
-		record = r.Database.Create(&r)
+		record = r.Database.Create(&user)
 	} else if record.Error == nil {
-		record = r.Database.Save(&r)
+		record = r.Database.Save(&user)
 	}
 	err := record.Error
 	if err != nil {

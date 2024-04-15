@@ -20,6 +20,17 @@ type UserRepository struct {
 	Database *gorm.DB
 }
 
+func (r *UserRepository) AutoMigrate() error {
+	err := r.Database.AutoMigrate(Role{})
+	if err != nil {
+		return err
+	}
+	err = r.Database.AutoMigrate(User{})
+	if err != nil {
+		return err
+	}
+}
+
 func (r *UserRepository) ConnectUserRepository(dbconfig config.DBConfig) error {
 	err := checkDBConfig(&dbconfig)
 	if err != nil {

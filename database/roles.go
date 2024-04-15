@@ -10,25 +10,34 @@ import (
 )
 
 type Role struct {
-	ID          uuid.UUID `gorm:"primaryKey,type:uuid;default:uuid_generate_v4()"`
-	RoleName    string    `gorm:"not null,type:text"`
+	ID          string `gorm:"primaryKey"`
+	RoleName    string `gorm:"not null,type:text"`
 	Permissions permission
 	CreatedAt   time.Time
 	UpdatedAt   time.Time
 	DeletedAt   gorm.DeletedAt `gorm:"index"`
 }
 
+func (role *Role) BeforeCreate(tx *gorm.DB) (err error) {
+	// UUID version 4
+	role.ID = uuid.NewString()
+	tx.Statement.SetColumn("ID", role.ID)
+	return
+}
+
 func (r *UserRepository) SaveRole(role Role) error {
 	record := r.Database.Where("role_name = ?", role.RoleName).First(&role)
+	var err error = nil
 	if record.Error != nil && errors.Is(record.Error, gorm.ErrRecordNotFound) {
 		log.Default().Println("Creating new Role")
-		record = r.Database.Create(&r)
+		recordC := r.Database.Create(&role)
+		err = recordC.Error
 		log.Default().Println("Role created...")
 	} else if record.Error == nil {
 		log.Default().Println("Saving existing Role: " + role.RoleName)
-		record = r.Database.Save(&r)
+		recordS := r.Database.Save(&role)
+		err = recordS.Error
 	}
-	err := record.Error
 	if err != nil {
 		log.Default().Println("Error during save operation")
 		return err
