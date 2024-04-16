@@ -4,6 +4,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/DATA-DOG/go-sqlmock"
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
 )
@@ -86,7 +87,13 @@ func TestAddRole_ShouldSucceed(t *testing.T) {
 	UserRepo.Database = UserRepo.Database.Model(&Role{})
 
 	mock.ExpectQuery(expectedSQLSelect).WillReturnRows(selectRoles)
-	mock.ExpectQuery(expectedSQLInsert).WillReturnRows()
+
+	slice, err := GetSliceOfItem(RoleData)
+	assert.Nil(t, err)
+
+	mock.ExpectBegin()
+	mock.ExpectQuery(expectedSQLInsert).WithArgs(slice[0]...).WillReturnRows(sqlmock.NewRows([]string{"id"}).AddRow("1"))
+	mock.ExpectCommit()
 
 	err = UserRepo.SaveRole(RoleData[0])
 

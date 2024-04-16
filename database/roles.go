@@ -1,6 +1,7 @@
 package database
 
 import (
+	"context"
 	"errors"
 	"log"
 	"time"
@@ -26,16 +27,19 @@ func (role *Role) BeforeCreate(tx *gorm.DB) (err error) {
 }
 
 func (r *UserRepository) SaveRole(role Role) error {
-	record := r.Database.Where("role_name = ?", role.RoleName).First(&role)
+	record := r.Database.WithContext(context.Background()).Where("role_name = ?", role.RoleName).First(&role)
 	var err error = nil
 	if record.Error != nil && errors.Is(record.Error, gorm.ErrRecordNotFound) {
 		log.Default().Println("Creating new Role")
-		recordC := r.Database.Create(&role)
+		recordC := r.Database.WithContext(context.Background()).Create(&role)
 		err = recordC.Error
+		if err != nil {
+			log.Default().Println("err: ", err)
+		}
 		log.Default().Println("Role created...")
 	} else if record.Error == nil {
 		log.Default().Println("Saving existing Role: " + role.RoleName)
-		recordS := r.Database.Save(&role)
+		recordS := r.Database.WithContext(context.Background()).Save(&role)
 		err = recordS.Error
 	}
 	if err != nil {
