@@ -26,7 +26,8 @@ func (role *Role) BeforeCreate(tx *gorm.DB) (err error) {
 }
 
 func (r *UserRepository) SaveRole(role Role) error {
-	record := r.Database.WithContext(context.Background()).Where("role_name = ?", role.RoleName).First(&role)
+	var testRole Role
+	record := r.Database.WithContext(context.Background()).Where("role_name = ?", role.RoleName).First(&testRole)
 	var err error = nil
 	if record.Error != nil && errors.Is(record.Error, gorm.ErrRecordNotFound) {
 		err = nil

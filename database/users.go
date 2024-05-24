@@ -2,6 +2,7 @@ package database
 
 import (
 	"bytes"
+	"context"
 	"errors"
 	"time"
 	"unicode"
@@ -35,13 +36,18 @@ func (user *User) BeforeCreate(tx *gorm.DB) (err error) {
 	return
 }
 
-func (r *UserRepository) CreateNewUser(username string, password string) (User, error) {
+func (r *UserRepository) CreateNewUser(username string, email string, password string) (User, error) {
 	validate := r.validateUsername(username)
 	var u User
 	if validate != nil {
 		return u, validate
 	}
 	u.Username = username
+	u.Email = email
+	u.DisableAccount = false
+	u.ForcePasswordReset = false
+	u.LastLogin = time.Now()
+	u.LoginAttempts = 0
 	noPerms, err := UserRepo.LoadRole("NO_PERMISSIONS")
 	if err != nil {
 		return u, err
@@ -191,11 +197,12 @@ func encryptPassword(password string) ([]byte, error) {
 }
 
 func (r *UserRepository) SaveUser(user User) error {
-	record := r.Database.Where("username = ?", user.Username).First(&user)
+	var testUser User
+	record := r.Database.WithContext(context.Background()).Where("username = ?", user.Username).First(&testUser)
 	if record.Error != nil && errors.Is(record.Error, gorm.ErrRecordNotFound) {
-		record = r.Database.Create(&user)
+		record = r.Database.WithContext(context.Background()).Create(&user)
 	} else if record.Error == nil {
-		record = r.Database.Save(&user)
+		record = r.Database.WithContext(context.Background()).Save(&user)
 	}
 	err := record.Error
 	if err != nil {
@@ -242,9 +249,11 @@ func (r *UserRepository) InitUserModel() error {
 	var admin User
 	record := r.Database.Where("username = ?", "admin").First(&admin)
 	if record.Error != nil && errors.Is(record.Error, gorm.ErrRecordNotFound) {
-		admin.Email = "admin@no.email"
-		admin.Username = "admin"
-		err = admin.EncryptPassword("Password_1")
+		admin, err = r.CreateNewUser("admin", "admin@no.email", "Password_1")
+		if err != nil {
+			return err
+		}
+		admin, err = r.LoadUser("admin")
 		if err != nil {
 			return err
 		}
@@ -253,6 +262,7 @@ func (r *UserRepository) InitUserModel() error {
 			return err
 		}
 		admin.Role = adminRole
+		admin.ForcePasswordReset = true
 		err = r.SaveUser(admin)
 		if err != nil {
 			return err
