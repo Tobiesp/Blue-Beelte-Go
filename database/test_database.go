@@ -1,7 +1,6 @@
 package database
 
 import (
-	"database/sql"
 	"database/sql/driver"
 	"errors"
 	"log"
@@ -12,27 +11,17 @@ import (
 	"testing"
 
 	"github.com/DATA-DOG/go-sqlmock"
-	"gorm.io/driver/postgres"
+	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
-	"gorm.io/gorm/logger"
 	"gorm.io/gorm/schema"
 )
 
-func DbMock(t *testing.T) (*sql.DB, *gorm.DB, sqlmock.Sqlmock) {
-	sqldb, mock, err := sqlmock.New()
+func DbMock(t *testing.T) *gorm.DB {
+	db, err := gorm.Open(sqlite.Open("test.sqlite"), &gorm.Config{})
 	if err != nil {
 		t.Fatal(err)
 	}
-	gormdb, err := gorm.Open(postgres.New(postgres.Config{
-		Conn: sqldb,
-	}), &gorm.Config{
-		Logger: logger.Default.LogMode(logger.Info),
-	})
-
-	if err != nil {
-		t.Fatal(err)
-	}
-	return sqldb, gormdb, mock
+	return db
 }
 
 type ColumnSchema struct {

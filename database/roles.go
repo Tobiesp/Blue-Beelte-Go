@@ -3,7 +3,6 @@ package database
 import (
 	"context"
 	"errors"
-	"log"
 	"time"
 
 	"github.com/google/uuid"
@@ -30,20 +29,14 @@ func (r *UserRepository) SaveRole(role Role) error {
 	record := r.Database.WithContext(context.Background()).Where("role_name = ?", role.RoleName).First(&role)
 	var err error = nil
 	if record.Error != nil && errors.Is(record.Error, gorm.ErrRecordNotFound) {
-		log.Default().Println("Creating new Role")
+		err = nil
 		recordC := r.Database.WithContext(context.Background()).Create(&role)
 		err = recordC.Error
-		if err != nil {
-			log.Default().Println("err: ", err)
-		}
-		log.Default().Println("Role created...")
 	} else if record.Error == nil {
-		log.Default().Println("Saving existing Role: " + role.RoleName)
 		recordS := r.Database.WithContext(context.Background()).Save(&role)
 		err = recordS.Error
 	}
 	if err != nil {
-		log.Default().Println("Error during save operation")
 		return err
 	}
 	return nil
@@ -79,18 +72,24 @@ func (r *UserRepository) MigrateRoleModel() error {
 
 func (r *UserRepository) InitRoleModle() error {
 	var no_perm Role
-	no_perm.RoleName = "NO_PERMISSIONS"
-	no_perm.Permissions = NO_PERMISSIONS
-	err := r.SaveRole(no_perm)
-	if err != nil {
-		return err
+	record := r.Database.WithContext(context.Background()).Where("role_name = ?", "NO_PERMISSIONS").First(&no_perm)
+	if record.Error != nil && errors.Is(record.Error, gorm.ErrRecordNotFound) {
+		no_perm.RoleName = "NO_PERMISSIONS"
+		no_perm.Permissions = NO_PERMISSIONS
+		err := r.SaveRole(no_perm)
+		if err != nil {
+			return err
+		}
 	}
 	var admin Role
-	admin.RoleName = "ADMIN"
-	admin.Permissions = ADMIN
-	err = r.SaveRole(admin)
-	if err != nil {
-		return err
+	record = r.Database.WithContext(context.Background()).Where("role_name = ?", "ADMIN").First(&admin)
+	if record.Error != nil && errors.Is(record.Error, gorm.ErrRecordNotFound) {
+		admin.RoleName = "ADMIN"
+		admin.Permissions = ADMIN
+		err := r.SaveRole(admin)
+		if err != nil {
+			return err
+		}
 	}
 	return nil
 }

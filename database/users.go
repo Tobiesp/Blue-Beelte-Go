@@ -31,6 +31,7 @@ type User struct {
 func (user *User) BeforeCreate(tx *gorm.DB) (err error) {
 	// UUID version 4
 	user.ID = uuid.NewString()
+	tx.Statement.SetColumn("ID", user.ID)
 	return
 }
 
@@ -138,6 +139,9 @@ func (u *User) EncryptPassword(password string) error {
 
 func (r *UserRepository) ChangeUserPassword(user User, oldPassword string, newPassword string) error {
 	if user.VerifyPassword(oldPassword) {
+		if oldPassword == newPassword {
+			return errors.New("current and new password can't be the same")
+		}
 		err := user.EncryptPassword(newPassword)
 		if err != nil {
 			return err
@@ -236,20 +240,23 @@ func (r *UserRepository) InitUserModel() error {
 		return err
 	}
 	var admin User
-	admin.Email = "admin@no.email"
-	admin.Username = "admin"
-	err = admin.EncryptPassword("Password_1")
-	if err != nil {
-		return err
-	}
-	adminRole, err := r.LoadRole("ADMIN")
-	if err != nil {
-		return err
-	}
-	admin.Role = adminRole
-	err = r.SaveUser(admin)
-	if err != nil {
-		return err
+	record := r.Database.Where("username = ?", "admin").First(&admin)
+	if record.Error != nil && errors.Is(record.Error, gorm.ErrRecordNotFound) {
+		admin.Email = "admin@no.email"
+		admin.Username = "admin"
+		err = admin.EncryptPassword("Password_1")
+		if err != nil {
+			return err
+		}
+		adminRole, err := r.LoadRole("ADMIN")
+		if err != nil {
+			return err
+		}
+		admin.Role = adminRole
+		err = r.SaveUser(admin)
+		if err != nil {
+			return err
+		}
 	}
 	return nil
 }

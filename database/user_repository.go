@@ -32,6 +32,18 @@ func (r *UserRepository) AutoMigrate() error {
 	return nil
 }
 
+func (r *UserRepository) InitiateModels() error {
+	err := r.InitRoleModle()
+	if err != nil {
+		return err
+	}
+	err = r.InitUserModel()
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
 func (r *UserRepository) ConnectUserRepository(dbconfig config.DBConfig) error {
 	err := checkDBConfig(&dbconfig)
 	if err != nil {
