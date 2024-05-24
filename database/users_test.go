@@ -40,7 +40,8 @@ func TestAddUser_ShouldSucceed(t *testing.T) {
 	UserRepo.Database = db
 	UserRepo.AutoMigrate()
 	UserRepo.InitiateModels()
-	Expected, err := UserRepo.CreateNewUser("newUser", "newUser@no.email", "Password_1")
+	userTime := time.Now().UTC().String()
+	Expected, err := UserRepo.CreateNewUser("newUser"+userTime, "newUser@no.email", "Password_1")
 	assert.Nil(t, err)
 
 	err = UserRepo.SaveUser(Expected)
