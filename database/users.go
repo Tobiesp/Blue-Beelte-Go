@@ -36,6 +36,44 @@ func (user *User) BeforeCreate(tx *gorm.DB) (err error) {
 	return
 }
 
+func (r *UserRepository) LogonUser(username string, password string) (User, error) {
+	user, err := r.LoadUser(username)
+	if err != nil && errors.Is(err, gorm.ErrRecordNotFound) {
+		return user, LogonErrorNew("Username or password is not valid", BAD_USER_CODE)
+	}
+	if !user.VerifyPassword(password) {
+		user.LoginAttempts = user.LoginAttempts + 1
+		err = r.SaveUser(user)
+		if err != nil {
+			return User{}, LogonErrorNew("Fail to save User account: "+err.Error(), FAILED_TO_SAVE_USER_CODE)
+		}
+		err = LogonErrorNew("Username or password is not valid", BAD_USER_CODE)
+		return User{}, err
+	}
+	if user.DisableAccount {
+		return user, LogonErrorNew("Account Locked", LOCKED_ACCOUNT_CODE)
+	}
+	if user.ForcePasswordReset {
+		return user, LogonErrorNew("New Password need", FORCED_PASS_RESET_CODE)
+	}
+	if user.LoginAttempts > 5 {
+		user.LoginAttempts = user.LoginAttempts + 1
+		user.LastLogin = time.Now()
+		err = r.SaveUser(user)
+		if err != nil {
+			return User{}, LogonErrorNew("Fail to save User account: "+err.Error(), FAILED_TO_SAVE_USER_CODE)
+		}
+		return user, LogonErrorNew("To many Failed Logins", LOGON_COUNT_FAILED_CODE)
+	}
+	user.LoginAttempts = 0
+	user.LastLogin = time.Now()
+	err = r.SaveUser(user)
+	if err != nil {
+		return User{}, LogonErrorNew("Fail to save User account: "+err.Error(), FAILED_TO_SAVE_USER_CODE)
+	}
+	return user, nil
+}
+
 func (r *UserRepository) CreateNewUser(username string, email string, password string) (User, error) {
 	validate := r.validateUsername(username)
 	var u User
@@ -181,6 +219,8 @@ func (r *UserRepository) ResetUserPassword(user User) (string, error) {
 	if err != nil {
 		return "", err
 	}
+	user.ForcePasswordReset = false
+	user.LoginAttempts = 0
 	err = r.SaveUser(user)
 	if err != nil {
 		return "", err
