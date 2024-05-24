@@ -34,7 +34,8 @@ func getConfig() (*config.SysConfig, error) {
 }
 
 func Migrate() {
-	// database.Instance.AutoMigrate(&models.Page{})
+	database.UserRepo.AutoMigrate()
+	database.UserRepo.InitiateModels()
 	log.Println("Database Migration Completed!")
 }
 
@@ -42,7 +43,7 @@ func main() {
 	sconfig, err := getConfig()
 	if err != nil {
 		if strings.HasPrefix(err.Error(), "Could not find config file at") {
-			sconfig = &config.SysConfig{Server: config.ServerConfig{Port: 8080}, Database: config.DBConfig{Type: "sqlite", FilePath: "wiki.db"}}
+			sconfig = &config.SysConfig{Server: config.ServerConfig{Port: 8080}, Database: config.DBConfig{Type: "sqlite", FilePath: "database.sqlite"}}
 		} else {
 			panic(err.Error())
 		}
