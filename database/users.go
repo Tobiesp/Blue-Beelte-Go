@@ -1,7 +1,6 @@
 package database
 
 import (
-	"bytes"
 	"context"
 	"errors"
 	"time"
@@ -161,11 +160,8 @@ func validatePassword(password string) error {
 }
 
 func (u *User) VerifyPassword(password string) bool {
-	pass, err := encryptPassword(password)
-	if err != nil {
-		return false
-	}
-	return bytes.Equal(u.Password, pass)
+	err := bcrypt.CompareHashAndPassword(u.Password, []byte(password))
+	return err == nil
 }
 
 func (u *User) EncryptPassword(password string) error {
@@ -193,6 +189,7 @@ func (r *UserRepository) ChangeUserPassword(user User, oldPassword string, newPa
 	} else {
 		return errors.New("current password doesn't match for the user")
 	}
+	user.ForcePasswordReset = false
 	err := r.SaveUser(user)
 	if err != nil {
 		return err

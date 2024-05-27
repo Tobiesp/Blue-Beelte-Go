@@ -23,13 +23,21 @@ func TestFindUser_ShouldFindAdmin(t *testing.T) {
 		Role:               r,
 		LoginAttempts:      0,
 		LastLogin:          time.Now(),
-		ForcePasswordReset: true,
+		ForcePasswordReset: false,
 		DisableAccount:     false,
 		CreatedAt:          time.Now(),
 		UpdatedAt:          time.Now(),
 	}
 
-	usr, err := UserRepo.LoadUser("admin")
+	usr, err := UserRepo.LogonUser("admin", "Password_1")
+	if err != nil {
+		lerr := err.(*LogonError)
+		if lerr.ErrorCode() == 3 {
+			err = UserRepo.ChangeUserPassword(usr, "Password_1", "Password_2")
+			assert.Nil(t, err)
+		}
+		usr, err = UserRepo.LogonUser("admin", "Password_2")
+	}
 	assert.Nil(t, err)
 	Compare_Users(t, Expected, usr)
 }
@@ -51,6 +59,41 @@ func TestAddUser_ShouldSucceed(t *testing.T) {
 
 	assert.Nil(t, err)
 	Compare_Users(t, Expected, rle)
+}
+
+func TestUserLogon_ShouldSucceed(t *testing.T) {
+	db := DbMock(t)
+
+	UserRepo.Database = db
+	UserRepo.AutoMigrate()
+	UserRepo.InitiateModels()
+
+	usr, err := UserRepo.LogonUser("admin", "Password_1")
+	if err != nil {
+		lerr := err.(*LogonError)
+		if lerr.ErrorCode() == 3 {
+			err = UserRepo.ChangeUserPassword(usr, "Password_1", "Password_2")
+			assert.Nil(t, err)
+		}
+		usr, err = UserRepo.LogonUser("admin", "Password_2")
+	}
+	assert.Nil(t, err)
+	expected := usr.VerifyPassword("Password_2")
+	assert.True(t, expected)
+}
+
+func TestUserLogon_ShouldFail(t *testing.T) {
+	db := DbMock(t)
+
+	UserRepo.Database = db
+	UserRepo.AutoMigrate()
+	UserRepo.InitiateModels()
+
+	usr, err := UserRepo.LogonUser("admin", "Password_3")
+	assert.NotNil(t, err)
+	lerr := err.(*LogonError)
+	assert.Equal(t, lerr.ErrorCode(), 1)
+	assert.Equal(t, usr.LoginAttempts, uint(0))
 }
 
 func Compare_Users(t *testing.T, Expected User, Actual User) {
